@@ -3,7 +3,7 @@ from torch.nn import Parameter, Linear, ConstantPad2d
 import torch.nn.functional as F
 
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_self_loops, scatter_
+from torch_geometric.utils import add_self_loops
 
 
 class LGCN(MessagePassing):
@@ -132,9 +132,13 @@ class LGCN(MessagePassing):
                 )
             )
             row, col = edge_index_j, edge_index_i
-        
+
+        # Create an empty tensor of the same shape as weights to accumulate values
+        deg_weighted = torch.zeros_like(weights)
+        # Calculate the indices where you want to scatter the values
+        indices = col.unsqueeze(-1).expand_as(weights)
         # epsilon due to upcoming division
-        deg_weighted = scatter_("add",weights,col) + 1e-5 
+        deg_weighted = torch.scatter_reduce(input=deg_weighted, dim=0, index=indices, src=weights, reduce='sum') + 1e-5
         deg_weighted_inv = 1 / deg_weighted
         norm_weighted = deg_weighted_inv[col]
         
